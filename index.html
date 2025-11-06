@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concessionária Subaru</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Concessionária Subaru</h1>
+        <p>Gerencie o estoque de veículos Subaru</p>
+    </header>
+    
+    <main>
+        <section id="form-section">
+            <h2>Adicionar/Editar Carro</h2>
+            <form id="car-form">
+                <input type="hidden" id="car-id">
+                <label for="modelo">Modelo:</label>
+                <input type="text" id="modelo" required>
+                
+                <label for="ano">Ano:</label>
+                <input type="number" id="ano" required>
+                
+                <label for="preco">Preço (R$):</label>
+                <input type="number" id="preco" step="0.01" required>
+                
+                <button type="submit" id="submit-btn">Adicionar Carro</button>
+                <button type="button" id="cancel-btn" style="display:none;">Cancelar</button>
+            </form>
+        </section>
+        
+        <section id="list-section">
+            <h2>Estoque de Carros</h2>
+            <button id="drop-table-btn">Deletar Tabela (Drop)</button>
+            <div id="car-list"></div>
+        </section>
+    </main>
+    
+    <script src="sql-wasm.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
