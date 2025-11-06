@@ -4,41 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Concessionária Subaru</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header>
         <h1>Concessionária Subaru</h1>
-        <p>Gerencie o estoque de veículos Subaru</p>
+        <p>Gerencie os modelos da Subaru com facilidade.</p>
     </header>
     
     <main>
-        <section id="form-section">
-            <h2>Adicionar/Editar Carro</h2>
-            <form id="car-form">
-                <input type="hidden" id="car-id">
-                <label for="modelo">Modelo:</label>
-                <input type="text" id="modelo" required>
-                
-                <label for="ano">Ano:</label>
-                <input type="number" id="ano" required>
-                
-                <label for="preco">Preço (R$):</label>
-                <input type="number" id="preco" step="0.01" required>
-                
-                <button type="submit" id="submit-btn">Adicionar Carro</button>
-                <button type="button" id="cancel-btn" style="display:none;">Cancelar</button>
-            </form>
-        </section>
+        <div class="controls">
+            <button id="insertBtn">Inserir Modelo</button>
+            <button id="selectBtn">Listar Modelos</button>
+            <button id="clearBtn">Limpar Banco</button>
+            <input type="text" id="searchInput" placeholder="Pesquisar por nome...">
+        </div>
         
-        <section id="list-section">
-            <h2>Estoque de Carros</h2>
-            <button id="drop-table-btn">Deletar Tabela (Drop)</button>
-            <div id="car-list"></div>
-        </section>
+        <table id="modelsTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome do Modelo</th>
+                    <th>Ano</th>
+                    <th>Preço (R$)</th>
+                    <th>Descrição</th>
+                    <th>Imagem</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- Dados serão inseridos aqui via JS -->
+            </tbody>
+        </table>
     </main>
     
-    <script src="sql-wasm.js"></script>
+    <!-- Modal para Inserir/Editar -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle">Inserir Novo Modelo</h2>
+            <form id="modelForm">
+                <label for="modelName">Nome do Modelo:</label>
+                <input type="text" id="modelName" required>
+                
+                <label for="modelYear">Ano:</label>
+                <input type="number" id="modelYear" min="1900" max="2100" required>
+                
+                <label for="modelPrice">Preço (R$):</label>
+                <input type="number" id="modelPrice" step="0.01" required>
+                
+                <label for="modelDesc">Descrição:</label>
+                <textarea id="modelDesc" required></textarea>
+                
+                <label for="modelImage">URL da Imagem (opcional):</label>
+                <input type="url" id="modelImage">
+                
+                <button type="submit" id="submitBtn">Confirmar</button>
+            </form>
+        </div>
+    </div>
+    
     <script src="script.js"></script>
 </body>
 </html>

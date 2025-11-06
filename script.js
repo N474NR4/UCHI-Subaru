@@ -1,102 +1,196 @@
-// Inicializar sql.js
-let SQL;
+// Configuração do IndexedDB (simulando SQLite)
+const dbName = 'SubaruDB';
+const dbVersion = 1;
 let db;
 
-initSqlJs({ locateFile: file => `sql-wasm.wasm` }).then(function(sql) {
-    SQL = sql;
-    db = new SQL.Database();
-    
-    // Criar tabela se não existir
-    db.run("CREATE TABLE IF NOT EXISTS carros (id INTEGER PRIMARY KEY AUTOINCREMENT, modelo TEXT, ano INTEGER, preco REAL)");
-    
-    // Carregar lista inicial
-    loadCars();
+// Abrir IndexedDB
+const openDB = () => {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbName, dbVersion);
+        request.onupgradeneeded = (event) => {
+            db = event.target.result;
+            if (!db.objectStoreNames.contains('models')) {
+                const store = db.createObjectStore('models', { keyPath: 'id', autoIncrement: true });
+                store.createIndex('model_name', 'model_name', { unique: false });
+            }
+        };
+        request.onsuccess = (event) => {
+            db = event.target.result;
+            resolve(db);
+        };
+        request.onerror = (event) => reject(event.target.error);
+    });
+};
+
+// Operações CRUD
+const addModel = async (model) => {
+    const transaction = db.transaction(['models'], 'readwrite');
+    const store = transaction.objectStore('models');
+    store.add(model);
+    return new Promise((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+    });
+};
+
+const getAllModels = async () => {
+    const transaction = db.transaction(['models'], 'readonly');
+    const store = transaction.objectStore('models');
+    return new Promise((resolve) => {
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+    });
+};
+
+const updateModel = async (model) => {
+    const transaction = db.transaction(['models'], 'readwrite');
+    const store = transaction.objectStore('models');
+    store.put(model);
+    return new Promise((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+    });
+};
+
+const deleteModel = async (id) => {
+    const transaction = db.transaction(['models'], 'readwrite');
+    const store = transaction.objectStore('models');
+    store.delete(id);
+    return new Promise((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+    });
+};
+
+const clearDB = async () => {
+    const transaction = db.transaction(['models'], 'readwrite');
+    const store = transaction.objectStore('models');
+    store.clear();
+    return new Promise((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+    });
+};
+
+// Elementos DOM
+const tableBody = document.getElementById('tableBody');
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modalTitle');
+const modelForm = document.getElementById('modelForm');
+const modelName = document.getElementById('modelName');
+const modelYear = document.getElementById('modelYear');
+const modelPrice = document.getElementById('modelPrice');
+const modelDesc = document.getElementById('modelDesc');
+const modelImage = document.getElementById('modelImage');
+const submitBtn = document.getElementById('submitBtn');
+const searchInput = document.getElementById('searchInput');
+let editingId = null;
+
+// Renderizar tabela
+const renderTable = async (filter = '') => {
+    const models = await getAllModels();
+    const filteredModels = models.filter(model => model.model_name.toLowerCase().includes(filter.toLowerCase()));
+    tableBody.innerHTML = '';
+    filteredModels.forEach(model => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${model.id}</td>
+            <td>${model.model_name}</td>
+            <td>${model.year}</td>
+            <td>R$ ${model.price.toFixed(2)}</td>
+            <td>${model.description}</td>
+            <td>${model.image_url ? `<img src="${model.image_url}" alt="Imagem" style="width: 50px; height: auto;">` : 'N/A'}</td>
+            <td>
+                <button class="action-btn edit-btn" data-id="${model.id}">Alterar</button>
+                <button class="action-btn delete-btn" data-id="${model.id}">Deletar</button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+};
+
+// Abrir modal para inserir
+document.getElementById('insertBtn').addEventListener('click', () => {
+    editingId = null;
+    modalTitle.textContent = 'Inserir Novo Modelo';
+    modelForm.reset();
+    modal.style.display = 'block';
 });
 
-// Função para carregar e exibir carros (SELECT)
-function loadCars() {
-    const result = db.exec("SELECT * FROM carros");
-    const carList = document.getElementById('car-list');
-    carList.innerHTML = '';
-    
-    if (result.length > 0) {
-        const rows = result[0].values;
-        rows.forEach(row => {
-            const [id, modelo, ano, preco] = row;
-            const carDiv = document.createElement('div');
-            carDiv.className = 'car-item';
-            carDiv.innerHTML = `
-                <h3>${modelo}</h3>
-                <p>Ano: ${ano}</p>
-                <p>Preço: R$ ${preco.toFixed(2)}</p>
-                <button onclick="editCar(${id})">Editar</button>
-                <button onclick="deleteCar(${id})">Deletar</button>
-            `;
-            carList.appendChild(carDiv);
-        });
-    } else {
-        carList.innerHTML = '<p>Nenhum carro no estoque.</p>';
-    }
-}
+// Botão Select (listar)
+document.getElementById('selectBtn').addEventListener('click', () => renderTable());
 
-// Função para adicionar/editar carro (INSERT/UPDATE)
-document.getElementById('car-form').addEventListener('submit', function(e) {
+// Pesquisa com debounce
+let searchTimeout;
+searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => renderTable(searchInput.value), 300);
+});
+
+// Editar ao clicar na linha
+tableBody.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('edit-btn')) {
+        const id = parseInt(e.target.dataset.id);
+        const models = await getAllModels();
+        const model = models.find(m => m.id === id);
+        if (model) {
+            editingId = id;
+            modalTitle.textContent = 'Alterar Modelo';
+            modelName.value = model.model_name;
+            modelYear.value = model.year;
+            modelPrice.value = model.price;
+            modelDesc.value = model.description;
+            modelImage.value = model.image_url || '';
+            modal.style.display = 'block';
+        }
+    } else if (e.target.classList.contains('delete-btn')) {
+        const id = parseInt(e.target.dataset.id);
+        if (confirm('Tem certeza que deseja deletar este modelo?')) {
+            await deleteModel(id);
+            renderTable(searchInput.value);
+            alert('Modelo deletado com sucesso!');
+        }
+    }
+});
+
+// Submeter formulário
+modelForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const id = document.getElementById('car-id').value;
-    const modelo = document.getElementById('modelo').value;
-    const ano = document.getElementById('ano').value;
-    const preco = document.getElementById('preco').value;
-    
-    if (id) {
-        // UPDATE
-        db.run("UPDATE carros SET modelo=?, ano=?, preco=? WHERE id=?", [modelo, ano, preco, id]);
+    const model = {
+        model_name: modelName.value,
+        year: parseInt(modelYear.value),
+        price: parseFloat(modelPrice.value),
+        description: modelDesc.value,
+        image_url: modelImage.value || null
+    };
+    if (editingId) {
+        model.id = editingId;
+        await updateModel(model);
+        alert('Modelo alterado com sucesso!');
     } else {
-        // INSERT
-        db.run("INSERT INTO carros (modelo, ano, preco) VALUES (?, ?, ?)", [modelo, ano, preco]);
+        await addModel(model);
+        alert('Modelo inserido com sucesso!');
     }
-    
-    resetForm();
-    loadCars();
+    modal.style.display = 'none';
+    renderTable(searchInput.value);
 });
 
-// Função para editar carro (preencher formulário)
-function editCar(id) {
-    const result = db.exec("SELECT * FROM carros WHERE id=?", [id]);
-    if (result.length > 0) {
-        const [row] = result[0].values;
-        document.getElementById('car-id').value = row[0];
-        document.getElementById('modelo').value = row[1];
-        document.getElementById('ano').value = row[2];
-        document.getElementById('preco').value = row[3];
-        document.getElementById('submit-btn').textContent = 'Atualizar Carro';
-        document.getElementById('cancel-btn').style.display = 'inline-block';
-    }
-}
+// Fechar modal
+document.querySelector('.close').addEventListener('click', () => {
+    modal.style.display = 'none';
+});
 
-// Função para deletar carro (DELETE)
-function deleteCar(id) {
-    if (confirm('Tem certeza que deseja deletar este carro?')) {
-        db.run("DELETE FROM carros WHERE id=?", [id]);
-        loadCars();
-    }
-}
-
-// Função para deletar tabela (DROP)
-document.getElementById('drop-table-btn').addEventListener('click', function() {
-    if (confirm('Isso irá deletar toda a tabela e dados. Continuar?')) {
-        db.run("DROP TABLE carros");
-        db.run("CREATE TABLE carros (id INTEGER PRIMARY KEY AUTOINCREMENT, modelo TEXT, ano INTEGER, preco REAL)");
-        loadCars();
+// Limpar banco (para testes)
+document.getElementById('clearBtn').addEventListener('click', async () => {
+    if (confirm('Isso limpará todos os dados. Continuar?')) {
+        await clearDB();
+        renderTable();
+        alert('Banco limpo!');
     }
 });
 
-// Função para resetar formulário
-function resetForm() {
-    document.getElementById('car-form').reset();
-    document.getElementById('car-id').value = '';
-    document.getElementById('submit-btn').textContent = 'Adicionar Carro';
-    document.getElementById('cancel-btn').style.display = 'none';
-}
-
-// Cancelar edição
-document.getElementById('cancel-btn').addEventListener('click', resetForm);
+// Inicializar
+(async () => {
+    await openDB();
+    renderTable();
+})();
